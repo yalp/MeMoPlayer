@@ -19,13 +19,12 @@ package memoplayer;
 class Register {
     static final int TYPE_INT = 1;
     static final int TYPE_FLOAT = 2;
-    static final int TYPE_STRING = 4;
-    static final int TYPE_NODE = 8;
-    static final int TYPE_FIELD = 16;
+    static final int TYPE_STRING = 3;
+    static final int TYPE_NODE = 4;
+    static final int TYPE_FIELD = 5;
 
     int m_type;
     int m_ival;
-    String m_sval;
     Object m_oval;
 
     Register () {
@@ -34,11 +33,15 @@ class Register {
     public String toString () {
         return getString ();
     }
+    
+    public int getType () {
+        return m_type;
+    }
 
     void setBool (boolean b) { 
         m_type = TYPE_INT;
         m_ival =  b ? 1 : 0;
-        m_sval = null;
+        m_oval = null;
     }        
 
     boolean getBool () { 
@@ -52,7 +55,7 @@ class Register {
     void setInt (int i) { 
         m_type = TYPE_INT;
         m_ival =  i;
-        m_sval = null;
+        m_oval = null;
     }
 
     int getInt () {
@@ -60,17 +63,15 @@ class Register {
             return (m_ival);
         } else if (m_type == TYPE_FLOAT) {
             return (m_ival >> 16);
-        } else if (m_type == TYPE_NODE) {
-            return (m_oval == null ? 0 : 1);
         } else {
-            return (0);
+            return (m_oval == null ? 0 : 1);
         }
     }
 
     void setFloat (int i) { 
         m_type = TYPE_FLOAT;
         m_ival =  i;
-        m_sval = null;
+        m_oval = null;
     }        
 
     int getFloat () {
@@ -90,12 +91,12 @@ class Register {
     void setColorComponent(int c) {
         m_type = TYPE_FLOAT;
         m_ival = FixFloat.fixDiv (c<<16, 255<<16);
-        m_sval = null;
+        m_oval = null;
     }
 
     void setString (String s) { 
         m_type = TYPE_STRING;
-        m_sval =  s == null ? "" : s;
+        m_oval =  s == null ? "" : s;
     }
 
     String getString () {
@@ -103,14 +104,8 @@ class Register {
             return Integer.toString (m_ival);
         } else if (m_type == TYPE_FLOAT) {
             return FixFloat.toString (m_ival);
-        } else if (m_type == TYPE_STRING) {
-            return m_sval;
-        } else if (m_type == TYPE_FIELD) {
-            return m_oval != null ? m_oval.toString () : "NULL";
-        } else if (m_type == TYPE_NODE) {
-            return m_oval != null ? m_oval.toString () : "NULL";
         } else {
-            return "undefined";
+            return m_oval != null ? m_oval.toString () : "NULL";
         }
     }
 
@@ -140,10 +135,22 @@ class Register {
         }
     }
 
+    void setObject (int type, Object o) {
+        m_type = type;
+        m_oval = o;
+    }
+    
+    Object getObject (int type) {
+        return m_type == type ? m_oval : null;
+    }
+    
+    Object getObject () {
+        return m_oval;
+    }
+    
     void set (Register r) {
         m_type = r.m_type;
         m_ival = r.m_ival;
-        m_sval = r.m_sval;
         m_oval = r.m_oval;
     }
     
@@ -154,7 +161,7 @@ class Register {
         switch(m_type) {
         case TYPE_INT: return new Integer(m_ival);
         case TYPE_FLOAT: return new FixFloat(m_ival);
-        case TYPE_STRING: return m_sval;
+        case TYPE_STRING:
         case TYPE_NODE: return m_oval;
         //case TYPE_FIELD: return m_oval;
         default: return new Object(); // Or null ?
@@ -169,7 +176,7 @@ class Register {
             } else if (r.m_type == TYPE_FLOAT) {
                 setFloat ((m_ival << 16)+r.m_ival);
             } else if (r.m_type == TYPE_STRING) {
-                setString (getString() + r.m_sval);
+                setString (getString() + r.m_oval);
             } else {
                 setString (getString() + r.m_oval);
             }
@@ -179,19 +186,19 @@ class Register {
             } else if (r.m_type == TYPE_FLOAT) {
                 setFloat (m_ival+r.m_ival);
             } else if (r.m_type == TYPE_STRING) {
-                setString (FixFloat.toString(m_ival) + r.m_sval);
+                setString (FixFloat.toString(m_ival) + r.m_oval);
             } else {
                 setString (FixFloat.toString(m_ival) + r.m_oval);
             }
         } else if (m_type == TYPE_STRING) {
             if (r.m_type == TYPE_INT) {
-                setString (m_sval+Integer.toString (r.m_ival));
+                setString (m_oval+Integer.toString (r.m_ival));
             } else if (r.m_type == TYPE_FLOAT) {
-                setString (m_sval+FixFloat.toString (r.m_ival));
+                setString (m_oval+FixFloat.toString (r.m_ival));
             } else if (r.m_type == TYPE_STRING) {
-                setString (m_sval + r.m_sval);
+                setString (m_oval.toString() + r.m_oval);
             } else {
-                setString (m_sval + r.m_oval);
+                setString (m_oval.toString() + r.m_oval);
             }
         } else { // node
             setInt (0);
@@ -262,10 +269,8 @@ class Register {
                 return m_ival - r.m_ival;
             } else if (r.m_type == TYPE_FLOAT) {
                 return (m_ival << 16) - r.m_ival;
-            } else if (r.m_type == TYPE_NODE) {
-                return (m_ival == 0 && r.m_oval == null) ? 0 : 1;
             } else {
-                return 1;
+                return (m_ival == 0 && r.m_oval == null) ? 0 : 1;
             }
         } else if (m_type == TYPE_FLOAT) { 
             if (r.m_type == TYPE_INT) { 
@@ -281,10 +286,10 @@ class Register {
             } else if (r.m_type == TYPE_FLOAT) { 
                 return 1;
             } else {
-                return m_sval.compareTo (r.m_sval);
+                return m_oval.toString().compareTo (r.m_oval.toString());
             }
-        } else { // TYPE_NODE
-            if (r.m_type == TYPE_NODE) { 
+        } else {
+            if (m_type == r.m_type) {
                 return m_oval == r.m_oval ? 0 : 1;
             } else if (r.m_type == TYPE_INT) {
                 return (r.m_ival == 0 && m_oval == null) ? 0 : 1;
