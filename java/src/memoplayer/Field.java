@@ -91,6 +91,8 @@ abstract public class Field implements ScriptAccess{
     protected final static int MFSTRING_CODE = 17;
     protected final static int MFVEC2F_CODE = 18;
     protected final static int MFVEC3F_CODE = 19;
+    protected final static int MFANY_CODE = 23;
+    protected final static int SFANY_CODE = 24;
 
     Link m_root;
     int m_id; // used by Script node to get the right index
@@ -159,6 +161,8 @@ abstract public class Field implements ScriptAccess{
         case MFSTRING_CODE : return new MFString ();
         case MFVEC2F_CODE : return new MFVec2f ();
         case MFVEC3F_CODE : return new MFVec3f ();
+        case MFANY_CODE : return new MFAny ();
+        case SFANY_CODE : return new SFAny ();
         default: 
             System.err.println ("createFieldById: unknown code: "+id);
             return null;

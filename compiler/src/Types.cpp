@@ -241,6 +241,7 @@ const char * assoc [] = {
     "MFField",    //21
     "SFDefined",  //22
     "MFAny",      //23
+    "SFAny",      //24
 };
 
 void spaces (int n) {
@@ -1957,6 +1958,34 @@ int SFNode::findIndex (const char * name, bool isArray) {
     return (-1);
 }
 
+SFAny::SFAny (char * type, char * name, Field * next)
+    : Field (type, name, next) {
+}
+
+SFAny::~SFAny () { if(m_fn) free(m_fn); }
+
+void SFAny::printValue (int n) { 
+}
+
+void SFAny::encodeValue (FILE * fp) { 
+    fprintf (fp, "%c", 0); // encoding empty size for now 
+}
+
+void SFAny::parseValue (Scene * scene, Tokenizer *t) {
+    m_fn = strdup(t->getFile()); 
+    m_line = t->getLine ();
+    if (!t->checkToken ("NULL")) {
+        fprintf (myStderr, "%s:%i: syntax error, only NULL is supported as SFAny value.", t->getFile(), t->getLine());
+        exit (1);
+    }
+}
+
+Field * SFAny::clone () {
+    SFAny * f = new SFAny (NULL, NULL, NULL);
+    f->copyFrom (this);
+    return (f);
+}
+
 MFField::MFField (char * type, char * name, Field * next) 
     : Field (type, name, next) {
     m_size = 0;
@@ -2497,15 +2526,15 @@ void MFAny::printValue (int n) {
 
 void MFAny::encodeValue (FILE * fp) { 
     encodeSize (fp);
-    if (m_size > 0) {
+    /*if (m_size > 0) {
         for (int i = 0; i < m_size; i++) {
         }
-    }
+    }*/
 }
 
 void MFAny::parseValue (Scene * scene, Tokenizer *t) {  
     m_size = 0;
-    m_line = t->getLine ();
+    /*m_line = t->getLine ();
     if (t->check ('[')) {
         while (!t->_EOF() && !t->check(']')) {
             m_array [m_size] = t->getNextString();
@@ -2513,6 +2542,10 @@ void MFAny::parseValue (Scene * scene, Tokenizer *t) {
         }
     } else if (t->checkToken ("NULL")) {
         m_size=0;
+    }*/
+    if (!t->checkToken ("NULL")) {
+        fprintf (myStderr, "%s:%i: syntax error, only NULL is supported as MFAny value.", t->getFile(), t->getLine());
+        exit (1);
     }
 }
 
@@ -2546,6 +2579,8 @@ Field * createField (char * type, char * name, Field * next) {
         return (new SFNode (type, name, next));
     } else if (strcmp (type, "SFString") == 0) {
         return (new SFString (type, name, next));
+    } else if (strcmp (type, "SFAny") == 0) {
+        return (new SFAny (type, name, next));
     } else if (strcmp (type, "MFNode") == 0) {
         return (new MFNode (type, name, next));
     } else if (strcmp (type, "MFInt32") == 0) {

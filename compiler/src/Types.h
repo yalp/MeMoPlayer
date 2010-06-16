@@ -58,6 +58,7 @@ public:
         TYPE_ID_MFFIELD = 21,
         TYPE_ID_SFDEFINED = 22,
         TYPE_ID_MFANY = 23,
+        TYPE_ID_SFANY = 24,
     };
     Field () ;
     
@@ -411,6 +412,19 @@ public:
     virtual Field * findField (const char * name);
     virtual int findIndex (const char * name, bool isArray);
     int getTypeId () { return TYPE_ID_SFNODE; }
+};
+
+class SFAny : public Field {
+public:
+    SFAny (char * type, char * name, Field * next);
+    ~SFAny ();
+    char * getValue () { return ""; }
+    void setValue (char * str) { }
+    virtual void printValue (int n);
+    virtual void encodeValue (FILE * fp);
+    virtual void parseValue (Scene * scene, Tokenizer *t);
+    virtual Field * clone ();
+    int getTypeId () { return TYPE_ID_SFANY; }
 };
 
 class MFField : public Field {
