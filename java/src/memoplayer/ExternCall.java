@@ -129,6 +129,7 @@ class ExternCall {
         case 18: doHttp (c, m, registers, r, nbParams); break;
         case 19: doStyle (c, m, registers, r, nbParams); break;
         case 20: doGPS (c, m, registers, r, nbParams); break;
+        case 21: doContactList(c, m, registers, r, nbParams); break;
         default:
             Logger.println("No API: "+o);
         }
@@ -1414,6 +1415,53 @@ class ExternCall {
             System.err.println ("doFile (m:"+m+")Static call: Invalid method");
             return;
         }
+    }
+    
+    static void doContactList (Context c, int m, Register [] registers, int r, int nbParams) {
+//#ifdef api.pim2
+        switch (m) {
+        case 0: // bool isAvailable ()
+            try {
+                Class.forName ("javax.microedition.pim.Contact");
+                registers[r].setBool (true);
+                return;
+            } catch (ClassNotFoundException e) {}
+            registers[r].setBool (false);
+            return;
+        case 1: // String list ()
+            registers[r].setString (JSContact2.listContactLists());
+            return;
+        case 2: // ContactList open ([String name])
+            registers[r].setObject (Register.TYPE_CONTACT_LIST, 
+                    JSContact2.openContactList (nbParams == 0 ? null : registers[r].getString()));
+            return;
+        case 3: /* FIELD_ADDRESS */
+        case 4: /* FIELD_EMAIL */
+        case 5: /* FIELD_TEL */
+        case 6: /* FIELD_URL */
+        case 7: /* FIELD_BIRTHDAY */
+        case 8: /* FIELD_NOTE */
+        case 9: /* FIELD_ORG */
+        case 10:/* FIELD_ID */
+            registers[r].setInt(m - 3 + JSContact2.FIELD_ADDR);
+            return;
+        case 11: /* ADDR_POBOX */
+        case 12: /* ADDR_STREET */
+        case 13: /* ADDR_POSTALCODE */
+        case 14: /* ADDR_CITY */
+        case 15: /* ADDR_COUNTRY */
+            registers[r].setInt(m - 11 + JSContact2.ADDR_POBOX);
+            return;
+        case 16: /* ATTR_HOME */      registers[r].setInt(JSContact2.ATTR_HOME); break;
+        case 17: /* ATTR_WORK */      registers[r].setInt(JSContact2.ATTR_WORK); break;
+        case 18: /* ATTR_MOBILE */    registers[r].setInt(JSContact2.ATTR_MOBILE); break;
+        case 19: /* ATTR_PREFERRED */ registers[r].setInt(JSContact2.ATTR_PREFERED); break;
+        case 20: /* ATTR_FAX */       registers[r].setInt(JSContact2.ATTR_FAX); break;
+        }
+//#else
+        // return false for both isAvailable() and open() when Class is not included
+        registers[r].setBool (false);
+//#endif
     }
 
     static void doContact  (Context c, int m, Register [] registers, int r, int nbParams) {

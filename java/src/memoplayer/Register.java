@@ -22,6 +22,9 @@ class Register {
     static final int TYPE_STRING = 3;
     static final int TYPE_NODE = 4;
     static final int TYPE_FIELD = 5;
+    static final int TYPE_CONTACT_LIST = 6;
+    static final int TYPE_CONTACT_LIST_ENUMERATION = 7;
+    static final int TYPE_CONTACT = 8;
 
     int m_type;
     int m_ival;

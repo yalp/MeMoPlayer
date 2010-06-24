@@ -26,6 +26,25 @@ Instance {
     decodeUrl           # String
     encodeUrl           # String
     replace             # String
+    hasMoreElements     # Enumeration
+    getNextElement      # Enumeration
+    list                # ContactList
+    close               # ContactList
+    newContact          # ContactList
+    deleteContact       # ContactList
+    save                # Contact
+    getFirstName        # Contact
+    getLastName         # Contact
+    getFormattedName    # Contact
+    getAddress          # Contact
+    getField            # Contact
+    getNbFields         # Contact
+    getMaxFields        # Contact
+    setName             # Contact
+    setAddress          # Contact
+    setField            # Contact
+    deleteField         # Contact
+    getFieldAttr        # Contact
 }
 
 # Functions:
@@ -820,3 +839,9 @@ GPS {
     stop
 }
 
+ContactList {
+  isAvailable list open
+  FIELD_ADDRESS FIELD_EMAIL FIELD_TEL FIELD_URL FIELD_BIRTHDAY FIELD_NOTE FIELD_ORG FIELD_ID
+  ADDR_POBOX ADDR_STREET ADDR_POSTALCODE ADDR_CITY ADDR_COUNTRY
+  ATTR_HOME ATTR_WORK ATTR_MOBILE ATTR_PREFERRED ATTR_FAX
+}
