@@ -136,8 +136,12 @@ class Register {
     }
 
     void setObject (int type, Object o) {
-        m_type = type;
-        m_oval = o;
+        if (o != null) {
+            m_type = type;
+            m_oval = o;
+        } else {
+            setBool (false);
+        }
     }
     
     Object getObject (int type) {

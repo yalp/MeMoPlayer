@@ -33,6 +33,7 @@
 extern void exchangeBytes (char * s);
 extern void write (FILE * fp, int f);
 extern int lastIndexOf (char * s, char c);
+extern void dumpMethods (char * s);
 
 FILE * myStderr = NULL;
 
@@ -118,6 +119,7 @@ void usage (char * exeName) {
     printf ("       ./compiler -o res index.wrl # compile index.wrl and store the result in ./res/index.m4m\n");
     printf ("usage: %s -d file.java : dump Node table in a java file (as a class with a collection of final static)\n", exeName);
     printf ("usage: %s -b file.java : dump ByteCode table in a java file (as a class with a collection of final static)\n", exeName);
+    printf ("usage: %s -a file.java : dump instance methods in a java file (as a class with a collection of final static)\n", exeName);
     exit (1);
 }
 
@@ -144,6 +146,10 @@ int main (int argc, char * argv []) {
     }
     if (strcmp (argv[1], "-b") ==0) {
         ByteCode::generate (argv[2]);
+        return (0);
+    }
+    if (strcmp (argv[1], "-a") ==0) {
+        dumpMethods (argv[2]);
         return (0);
     }
     bool verbose = false;

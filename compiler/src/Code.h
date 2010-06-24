@@ -99,6 +99,8 @@ public:
         //ASM_RET,
         //ASM_PUSH_BASE,
         //ASM_POP_BASE,
+        
+        ASM_OBJ_CALL,
     };
 
     ByteCode ();
@@ -208,6 +210,7 @@ public:
         CODE_LOG_AND,       // && 
         CODE_LOG_OR,        // || 
         CODE_TERNARY_COMP,  // ?:
+        CODE_CALL_METHOD, // call an internal function
     };
     enum {
         STORE_FIELD_NUMERIC = 1,
@@ -261,6 +264,7 @@ public:
     void append (Code * code);
     Code * getNext ();
     int getLength ();
+    int getType ();
     bool generateAll (ByteCode * bc, Function * f);
 private:
     void init ();

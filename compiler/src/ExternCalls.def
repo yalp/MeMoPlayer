@@ -7,6 +7,11 @@
 # The Browser class provides access to Browser level characteristics to functionality,
 # like terminal size, debug output, cookies.
 #
+
+# Instance method calls
+Instance {
+}
+
 # Functions:
 #  int getWidth () - Returns the screen width
 #  int getHeight () - Returns the screen height

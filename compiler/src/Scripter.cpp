@@ -81,6 +81,20 @@ public:
         }
         fprintf (myStderr, "    %s\n", m_name);
     }
+
+    void dump (FILE * out) {
+        if (m_next) {
+            m_next->dump (out);
+        }
+        fprintf (out, "    final static int %s = %i;\n", m_name, m_index);
+    }
+    void dumpNames (FILE * out) {
+        if (m_next) {
+            m_next->dumpNames (out);
+            fprintf (out, ", ");
+        }
+        fprintf (out, "\"%s\"", m_name);
+    }
 };
 
 class ClassLink : public NameLink {
@@ -108,26 +122,55 @@ public:
         m_functions->print ();
         fprintf (myStderr, "}\n");
     }
+
+    void dump (char * n) {
+        FILE * out = fopen (n, "wb");
+        if (out == NULL) {
+            fprintf (stderr, "Error: cannot open %s for writing\n", n);
+            exit (1);
+        }
+        fprintf (out, "package memoplayer;\n\n");
+        fprintf (out, "class ObjCall {\n");
+        fprintf (out, "    final static String[] methodNames = {");
+        if (m_functions != NULL) {
+            m_functions->dumpNames (out);
+        }
+        fprintf (out, "};\n");
+        if (m_functions != NULL) {
+            m_functions->dump (out);
+        }
+        fprintf (out, "}\n");
+        fclose (out);
+    }
 };
 
 class ExternClasses {
+    // List of static function, grouped by Class
     ClassLink * m_classes;
     int m_classIndex;
+    // List of instance functions
+    ClassLink * m_instanceFunctions;
 public:
-    ExternClasses (char * filename) { 
+    ExternClasses (char * filename) {
         m_classIndex = 0;
         m_classes = NULL;
+        m_instanceFunctions = NULL;
         Tokenizer t (filename, false, "ExternCalls", 1);
+        ClassLink * c;
         char * token = t.getNextToken ();
         while (token) { // new class
-            m_classes = new ClassLink (token, m_classIndex++, m_classes);
+            if (strcmp (token, "Instance") == 0) {
+                c = m_instanceFunctions = new ClassLink (token, 0, NULL);
+            } else {
+                c = m_classes = new ClassLink (token, m_classIndex++, m_classes);
+            }
             if (t.check ('{') == false) {
                 fprintf (myStderr, "Syntax error in %s line %d '{' expected\n", filename, t.getLine ());
                 exit (1);
             }
             token = t.getNextToken ();
             while (token) {
-                m_classes->addFunction (token);
+                c->addFunction (token);
                 token = t.getNextToken ();
             }
             if (t.check ('}') == false) {
@@ -148,16 +191,37 @@ public:
         ClassLink * cl = (ClassLink*)m_classes->find (id);
         return cl ? cl->getFuncIndex (funcName) : -1;
     }
+
+    int getInstanceFunctionIndex (char * funcName) {
+        return m_instanceFunctions ? m_instanceFunctions->getFuncIndex (funcName) : -1;
+    }
+
+    void dumpInstanceFunctions (char * n) {
+        if (m_instanceFunctions) {
+            m_instanceFunctions->dump (n);
+        }
+    }
 };
 
 static ExternClasses * s_externClasses = NULL;
 
-static int getObjectID (char * o) {
+static int getClassID (char * o) {
     return s_externClasses->getIndex (o);
 }
 
 static int getMethodID (int objID, char * m) {
     return s_externClasses->getIndex (objID, m);
+}
+
+static int getInstanceMethodID (char * m) {
+    return s_externClasses->getInstanceFunctionIndex (m);
+}
+
+void dumpMethods (char * n) {
+    if (s_externClasses == NULL) {
+        s_externClasses = new ExternClasses (externCallsDef);
+    }
+    s_externClasses->dumpInstanceFunctions (n);
 }
 
 Var * Var::purgeAll (int level, ByteCode * bc) {
@@ -239,24 +303,29 @@ Code * Function::parseFieldAccess (Tokenizer * t, char * token, int codeVar, int
     bool isArray = false;
     Var * var = m_vars ? m_vars->find (token) : NULL;
     if (var) {
-        lvalue = new Code (codeVar, new Code (token));
         if (t->check ('[')) { // parse indexed access
-            //fprintf (myStderr, "DBG:parseFieldAcess: got '['\n");
-            lvalue = appendCode (lvalue, new Code (Code::CODE_USE_IDX_FIELD, parseExpr (t)));
-            if (t->check (']') == false) {
-                fprintf (myStderr, "%s:%d: JS syntax error: ']' expected\n", t->getFile(), t->getLine());
+            fprintf (myStderr, "%s:%d: JS syntax error: array access is not supported on variables.\n", t->getFile(), t->getLine());
+            exit (1);
+        }
+        if (t->check('.')) {
+            char * s = t->getNextToken ();
+            if (s == NULL) {
+                fprintf (myStderr, "%s:%d: JS syntax error: expected method name after '%s.'\n", t->getFile(), t->getLine (), token);
                 exit (1);
             }
-            isArray = true;
-            //fprintf (myStderr, "DBG:parseFieldAcess: got ']'\n");
+            if (t->check ('(', true) == false) {
+                fprintf (myStderr, "%s:%d: JS syntax error: '(' expected after '%s.%s'.\n", t->getFile(), t->getLine (), token, s);
+                exit (1);
+            }
+            int methodID = getInstanceMethodID (s);
+            if (methodID < 0) {
+                fprintf (myStderr, "%s:%d: JS syntax error: unknown instance method %s\n", t->getFile(), t->getLine (), s);
+                exit (1);
+            }
+            lvalue = new Code (Code::CODE_GET_VAR, new Code (token));
+            return new Code (Code::CODE_CALL_METHOD, lvalue, new Code (methodID), parseParams (t));
         }
-        if (t->check ('.')) {
-            token = t->getNextToken ();
-        } else { // should be '='
-            //fprintf (myStderr, "DBG: the token is final => using index 0\n");
-            return appendCode (lvalue, new Code (codeField, new Code (0)));
-        }
-        return lvalue;
+        return new Code (codeVar, new Code (token));
     }
     Field * lastField = NULL;
     while (true) {
@@ -310,7 +379,20 @@ Code * Function::parseFieldAccess (Tokenizer * t, char * token, int codeVar, int
             //fprintf (myStderr, "DBG:parseFieldAcess: got ']'\n");
         }
         if (t->check ('.')) {
-            token = t->getNextToken ();
+            char * s = t->getNextToken ();
+            if (s == NULL) {
+                fprintf (myStderr, "%s:%d: JS syntax error: expected field or method name after '%s.'\n", t->getFile(), t->getLine (), token);
+                exit (1);
+            } else if (t->check ('(', true)) { // must be an instance method call !
+                int methodID = getInstanceMethodID (s);
+                if (methodID < 0) {
+                    fprintf (myStderr, "%s:%d: JS syntax error: unknown instance method %s() on field %s\n", t->getFile(), t->getLine (), s, token);
+                    exit (1);
+                }
+                lvalue = appendCode (lvalue, new Code (Code::CODE_GET_FIELD, new Code (0)));
+                return new Code (Code::CODE_CALL_METHOD, lvalue, new Code (methodID), parseParams (t));
+            }
+            token = s;
         } else { // should be '='
             int index  = 0;
             if (isArray == false && field != NULL && field->isMFField()) {
@@ -336,7 +418,7 @@ Code * Function::parseIdent (Tokenizer * t, char * token) {
     if ( t->check ('(', true)) {
         //fprintf (myStderr, "parsing internal func call %s\n", token);
         tmp = parseInternFunc (token, t);
-    } else  {
+    } else {
         tmp = parseFieldAccess (t, token, Code::CODE_GET_VAR, Code::CODE_GET_FIELD);
     }
     if (tmp == NULL) {
@@ -625,7 +707,7 @@ Code * Function::parseVarOrVal (Tokenizer * t) {
         } else if (strcmp (s, "false") == 0 || strcmp (s, "null") == 0) {
             return new Code (0);
         }
-        int objID = getObjectID (s);
+        int objID = getClassID (s);
         if (objID > -1) {
             return parseExternFunc (objID, t);
         }
@@ -830,7 +912,7 @@ Code * Function::parseInstr (Tokenizer * t, bool checkSemi) {
     Code * tmp = NULL;
     char * s = t->getNextToken ();
     if (s) {
-        int objID = getObjectID (s);
+        int objID = getClassID (s);
         if (objID > -1) {
             tmp = parseExternFunc (objID, t);
             if (checkSemi) {
@@ -888,7 +970,12 @@ Code * Function::parseInstr (Tokenizer * t, bool checkSemi) {
             }
             return (tmp);
         } else { // instruction
+            
             Code * lvalue = parseLValue (t, s);
+            if (lvalue != NULL && lvalue->getType() == Code::CODE_CALL_METHOD) {
+                ensure (';', "%s:%d: JS syntax error: missing ';' to end instruction\n", t);
+                return lvalue;
+            }
             bool self = false;
             int operation = parseAssign (t, self);
             if (operation == Code::CODE_ASSIGN || self == true) {

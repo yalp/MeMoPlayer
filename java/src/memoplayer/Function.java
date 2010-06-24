@@ -323,6 +323,13 @@ class Function {
                 e = ((int)m_codeTable[pc++]&0xFF);
                 ExternCall.doCall (m, c, a, b, register, regBase+d, e);
                 break;
+            case ByteCode.ASM_OBJ_CALL:
+                a = ((int)m_codeTable[pc++]&0xFF);
+                b = ((int)m_codeTable[pc++]&0xFF);
+                d = ((int)m_codeTable[pc++]&0xFF);
+                e = ((int)m_codeTable[pc++]&0xFF);
+                ObjCall.doCall (m, c, (a<<8)+b, register, regBase+d, e);
+                break;
             case ByteCode.ASM_INT_CALL:
                 a = ((int)m_codeTable[pc++]&0xFF);
                 b = ((int)m_codeTable[pc++]&0xFF);
@@ -463,6 +470,7 @@ class Function {
                 i += add_OBB (code, is);
                 break;
             case ByteCode.ASM_EXT_CALL:
+            case ByteCode.ASM_OBJ_CALL:
                 i += add_OBBBB (code, is);
                 break;
             case ByteCode.ASM_LABEL:

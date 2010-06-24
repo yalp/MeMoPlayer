@@ -415,6 +415,7 @@ void ByteCode::generate (char * n) {
     fprintf (fp, "    final static int ASM_JUMP = %d;\n", ASM_JUMP);
     fprintf (fp, "    final static int ASM_JUMP_ZERO = %d;\n", ASM_JUMP_ZERO);
     fprintf (fp, "    final static int ASM_EXT_CALL = %d;\n", ASM_EXT_CALL);
+    fprintf (fp, "    final static int ASM_OBJ_CALL = %d;\n", ASM_OBJ_CALL);
     fprintf (fp, "    final static int ASM_INT_CALL = %d;\n", ASM_INT_CALL);
     fprintf (fp, "    final static int ASM_RETURN = %d;\n", ASM_RETURN);
     fprintf (fp, "    final static int ASM_LOAD_REG_INT = %d;\n", ASM_LOAD_REG_INT);
@@ -659,6 +660,15 @@ void Code::print (int indentLevel) {
         if (m_second) { m_second->print (); }
         printf (");\n");
         break;
+    case CODE_CALL_METHOD:
+        printSpaces (indentLevel);
+        m_first->print (0);
+        printf ("."); 
+        m_second->print (0);
+        printf (" (");
+        if (m_third) { m_third->print (); }
+        printf (");\n");
+        break;
     case CODE_RETURN:
         printSpaces (indentLevel);
         printf (" (");
@@ -892,6 +902,10 @@ int Code::getLength () {
     }
 }
 
+int Code::getType () {
+    return m_type;
+}
+
 bool Code::generateAll (ByteCode * bc, Function * f) {
     generate (bc, f, 0);
     if (m_next) {
@@ -1089,6 +1103,34 @@ int Code::generate (ByteCode * bc, Function * f, int reg) {
             }
         }
         return reg2;
+    case CODE_CALL_METHOD:
+        // Split method id on two bytes
+        reg1 = (m_second->m_ival >> 8) & 0xFF;
+        reg2 = m_second->m_ival & 0xFF;
+        prevMode = bc->setRegBunchMode (true);
+        // First parameter is the object
+        nbParams = 1;
+        reg3 = m_first->generate (bc, f, reg);
+        if (m_third) {
+            nbParams++;
+            m_third->generate (bc, f, reg);
+            tmp = m_third->m_next;
+            while (tmp) {
+                nbParams++;
+                tmp->generate (bc, f, reg);
+                tmp = tmp->m_next;
+            }
+        }
+        bc->setRegBunchMode (prevMode);
+        bc->add (ByteCode::ASM_OBJ_CALL, reg1, reg2, reg3, nbParams);
+        // Free params registers (except the first one used for return value)
+        tmp = m_third; 
+        cnt1 = reg3+1;
+        while (tmp) {
+            bc->freeRegister (cnt1++);
+            tmp = tmp->m_next;
+        }
+        return reg3;
     case CODE_RETURN:
         if (m_first) {
             reg1 = m_first->generate (bc, f, reg);

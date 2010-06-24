@@ -56,4 +56,5 @@ public class ByteCode {
     final static int ASM_FIELD_IDX_REG = 14;
     final static int ASM_FIELD_SET_INT_REG = 16;
     final static int ASM_FIELD_GET_INT_REG = 15;
+    final static int ASM_OBJ_CALL = 37;
 }
