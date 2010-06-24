@@ -10,6 +10,22 @@
 
 # Instance method calls
 Instance {
+    length              # String
+    charAt              # String
+    substring           # String
+    startsWith          # String
+    endsWith            # String
+    indexOf             # String
+    lastIndexOf         # String
+    toLower             # String
+    toUpper             # String
+    strIndexOf          # String
+    toInt               # String
+    toFloat             # String
+    trim                # String
+    decodeUrl           # String
+    encodeUrl           # String
+    replace             # String
 }
 
 # Functions:
