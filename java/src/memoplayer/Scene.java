@@ -42,7 +42,6 @@ public class Scene implements Loadable {
     private ObjLink m_sleepyNodes;
     DataLink m_dataLink; // dynamic datalinks (used by ImageTexture)
     ObjLink m_blacklist; // blacklisted urls (used by ImageTexture)
-    FileQueue m_fq;
     
     /**
      * Must be called by MyCanvas before scenes compose to detect 
@@ -62,7 +61,6 @@ public class Scene implements Loadable {
 
     Scene (Decoder decoder, String name) {
         m_originalName = name;
-        
         if (decoder == null || name.startsWith ("http://") || name.startsWith ("file://") || name.startsWith("cache://") || name.startsWith("jar://")) {
             m_decoder = new Decoder (name);
         } else if (decoder.getSceneData (name) != null) {      
@@ -125,7 +123,6 @@ public class Scene implements Loadable {
             ObjLink.releaseAll(m_sleepyNodes);
             m_blacklist = null;
             m_sleepyNodes = null;
-            if (m_fq != null) m_fq.clean();
             // Cleanup possible touch event
             if (c.m_lastTouchedScene == this) {
                 c.m_lastTouchedScene = null;
@@ -202,7 +199,6 @@ public class Scene implements Loadable {
             activateInputSensors (c);
             activateActivables (c, m_timeSensors);
             updated = m_node.compose (c, clip, forceUpdate);
-            if (m_fq != null) m_fq.loadNext();
             c.scene = prevScene;
         }
         return updated;
@@ -218,19 +214,19 @@ public class Scene implements Loadable {
         return false;
     }
     
-    final Image getImage (String name) {
+    public synchronized Image getImage (String name) {
         DataLink dl = DataLink.find (m_dataLink, name);
         return dl == null ? null : dl.getImage ();
     }
     
-    final boolean checkImage (String name) {
+    public synchronized boolean checkImage (String name) {
         return DataLink.find (m_dataLink, name) != null;
     }
 
     /**
      * Load a byte array as a new Datalink of this scene
      */
-    public void addData(String name, byte[] data, int type, boolean force) {
+    public synchronized void addData(String name, byte[] data, int type, boolean force) {
         // Purge list of added DataLinks to keep it low in memory
         if (m_dataLink != null) {
             m_dataLink = m_dataLink.purge(0, s_maxDataLinkSize-data.length);
@@ -258,17 +254,17 @@ public class Scene implements Loadable {
     /**
      * Remove a DataLink of the scene
      */
-    public void removeData (String name) {
+    public synchronized void removeData (String name) {
         if (m_dataLink != null) {
             m_dataLink = m_dataLink.remove (name);
         }
     }
     
-    void addBlacklist (String url) {
+    public synchronized void addBlacklist (String url) {
         m_blacklist = ObjLink.create (url, m_blacklist);
     }
     
-    boolean isBlacklisted (String url) {
+    public synchronized boolean isBlacklisted (String url) {
         ObjLink ol = m_blacklist;
         while (ol != null) {
             if (url.equals (ol.m_object)) {
@@ -277,13 +273,6 @@ public class Scene implements Loadable {
             ol = ol.m_next;
         }
         return false;
-    }
-    
-    final FileQueue getFileQueue() {
-        if (m_fq == null) {
-            m_fq = new FileQueue();
-        }
-        return m_fq;
     }
     
     void registerSleepy (Node n) {

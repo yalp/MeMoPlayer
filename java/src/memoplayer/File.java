@@ -36,16 +36,12 @@ public class File implements Loadable {
      * @see readAllBytes
      */
     private final static int DOWNLOAD_CHUNK_SIZE = 512;
- 
-    // Used by FileQueue
-    public int m_count;
-    public File m_next;
     
     private Connection m_c;
     private DataInputStream m_dis;
     private DataOutputStream m_dos;
 
-    private String m_url;
+    protected String m_url;
     private int m_mode = MODE_READ & MODE_SYNC;
     private int m_state = Loadable.ERROR;
     private int m_len = -1; // the total number of byte to read
@@ -59,7 +55,10 @@ public class File implements Loadable {
     private StringBuffer sb; // for UTF-8 support
     private String m_cacheRecord; // if not null, cache data to this record on load
     public String m_cacheNamespace; // if not empty, name of the Namespace to use
-    
+
+    // FileQueue constructor
+    protected File() {}
+
     // Read-only constructor
     File (String url) {
         this (url, 0);
@@ -87,52 +86,6 @@ public class File implements Loadable {
             open (url);
         }
     }
-  
-    // Queued file constructor (see FileQueue.getFile)
-    File (String url, String namespace) {
-        m_url = url;
-        m_count = 1;
-        m_cacheNamespace = namespace;
-        setState(Loadable.QUEUED);
-    }
-    
-    // Cancel a queued file request
-    void cancelQueue () {
-        if (getState() == Loadable.QUEUED) {
-            if (m_count > 0) {
-                m_count--;
-            }
-        }
-    }
-    
-    boolean match (String url, String namespace) {
-       return url.equals (m_url) && namespace.equals(m_cacheNamespace);
-    }
-    
-    // Find existing File in queue, or add a new one at tail
-    File findQueue (String url, String namespace) {
-        if (match (url, namespace)) {
-            m_count++;
-            return this;
-        }
-        if (m_next != null) {
-            return m_next.findQueue (url, namespace);
-        }
-        return m_next = new File (url, namespace);
-    }
-    
-    // Find next File to use from queue
-    File popQueue () {
-        if (getState() == Loadable.QUEUED && m_count > 0) {
-            return this;
-        } else if (m_next != null) {
-            File next = m_next;
-            // Explicitly dequeue file to help GC
-            m_next = null;
-            return next.popQueue();
-        }
-        return null;
-    }
     
     final boolean isMode (final int m) {
         return (m_mode & m) == m;
@@ -147,25 +100,6 @@ public class File implements Loadable {
     }
 
     /**
-     * Open queued file, load data to m_data, close file.
-     * Used by the FileQueue.
-     */
-    void openAndLoad() {
-        if (getState() == File.QUEUED) {
-            open (m_url);
-            if (getState() == Loadable.READY) {
-                setState(Loadable.LOADING);
-                m_data = readAllBytes();
-                if (m_data != null) {
-                    close(Loadable.LOADED);
-                } else {
-                    close(Loadable.ERROR);
-                }
-            }
-        }
-    }
-    
-    /**
      * This method allows ImageTexture to retrieve data without closing the
      * File (already closed by openAndLoad() method) as with startReadAllBytes(false).
      * @return Return data loaded by the openAndLoad() method.
@@ -174,7 +108,7 @@ public class File implements Loadable {
         return m_data;
     }
     
-    private void open (String url) {
+    protected void open (String url) {
         //Logger.println("File:"+this+": open("+url+") : "+(write?"WRITE":"READ"));
         setState(Loadable.OPENING);
         try {

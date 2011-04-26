@@ -894,9 +894,7 @@ public class MyCanvas extends net.rim.device.api.ui.container.MainScreen
 //#endif
             }
 //#endif
-            
-            DataLoader.check();
-            
+
             // Thread safe forceUpdate notification
             synchronized (m_updateLock) {
                 update = forceUpdate;

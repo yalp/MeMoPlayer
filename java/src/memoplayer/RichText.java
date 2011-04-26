@@ -1228,11 +1228,11 @@ class TextFragment extends Fragment {
     public String toString () { return "TextFragment: "+m_string.substring (m_start, m_end); }
 }
 
-class ImageFragment extends Fragment implements ImageRequester {
-    String m_src = "";
+class ImageFragment extends Fragment implements FileRequester {
     Image m_image;
     FragmentEngine m_fe;
     boolean m_imageRequested = false;
+    boolean m_imageReady = false;
 
     ImageFragment (HtmlContext context, FragmentEngine fe) {
         super (context);
@@ -1251,13 +1251,17 @@ class ImageFragment extends Fragment implements ImageRequester {
         // try to load image
         if (!m_imageRequested && m_hcontext.m_src != null) {
             m_imageRequested = true;
-            new DataLoader (m_hcontext.m_src, (ImageRequester)this, c);
+            FileQueue.add(m_hcontext.m_src, c.scene, this, true);
+        } else if (m_imageReady) {
+            m_image = c.getImage(m_hcontext.m_src);
         }
     }
 
-    public void imageReady (Image image) {
-        m_image = image;
-        m_fe.setNeedRedraw ();
+    public void dataReady (byte[] image) {
+        m_imageReady = image != null;
+        if (m_imageReady) {
+            m_fe.setNeedRedraw ();
+        }
     }
 
     void draw (Graphics g, HtmlContext hc, int x, int y, int start, int end) {
@@ -1579,7 +1583,7 @@ class BlockFragment extends Fragment {
 
 }
 
-class FragmentEngine implements XmlVisitor, TextRequester {
+class FragmentEngine implements XmlVisitor, FileRequester {
     final static int NONE      = 0;
     final static int HTML      = 1;
     final static int HEAD      = 2;
@@ -1628,6 +1632,7 @@ class FragmentEngine implements XmlVisitor, TextRequester {
     boolean m_needRedraw = true;
     Context m_context;
     PropertiesManager m_propMgr;
+    String m_linkStyle = null; // temporary keeps data from the FileQueue request
 
     // the anchors
     int m_nbAnchors = 0;
@@ -1684,11 +1689,11 @@ class FragmentEngine implements XmlVisitor, TextRequester {
         return -1;
     }
 
-    synchronized void setNeedRedraw () {
+    void setNeedRedraw () {
         m_needRedraw = true;
     }
 
-    synchronized boolean isNeedRedraw () {
+    boolean isNeedRedraw () {
         return m_needRedraw;
 //         if (m_needRedraw) {
 //             m_needRedraw = false;
@@ -2024,8 +2029,7 @@ class FragmentEngine implements XmlVisitor, TextRequester {
     // callback from XML visitor: called when teh list of attributes is reached
     public void endOfAttributes (boolean selfClosing) {
         if (getMode () == LINK) {
-            String href = m_hcontext.m_href;
-            new DataLoader (href, this, m_context);
+            FileQueue.add(m_hcontext.m_href, m_context.scene, this, false);
         }
         // if selfClosing, pop context
         if (selfClosing) {
@@ -2041,10 +2045,9 @@ class FragmentEngine implements XmlVisitor, TextRequester {
         popMode ();
     }
 
-    // callback
-    public void textReady (String s) {
-        m_propMgr.parseExternal (s);
-        updateFromStyles ();
+    // callback from FileRequest thread
+    public void dataReady (byte[] s) {
+        m_linkStyle = new String(s);
         setNeedRedraw ();
     }
 
@@ -2071,6 +2074,11 @@ class FragmentEngine implements XmlVisitor, TextRequester {
         m_width = width;
         m_needRedraw = false;
         if (m_block != null) {
+            if (m_linkStyle != null) {
+                m_propMgr.parseExternal (m_linkStyle);
+                updateFromStyles ();
+                m_linkStyle = null;
+            }
             m_block.updateContext (m_hcontext);
             m_block.computeBox (c, m_width);
             m_block.cumulOffset (0, 0);

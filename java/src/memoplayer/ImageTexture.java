@@ -20,13 +20,13 @@ package memoplayer;
 import javax.microedition.lcdui.Image;
 //#endif
 
-public class ImageTexture extends Node implements ImageRequester {
+public class ImageTexture extends Node implements FileRequester {
     boolean m_isPng = false;
     boolean m_reloadIC = false;
     int m_state = Loadable.OK;
     String m_url = "";
     ImageContext m_ic;
-    DataLoader m_dl;
+    FileQueue m_file;
     
     ImageTexture () {
         super (5);
@@ -46,9 +46,9 @@ public class ImageTexture extends Node implements ImageRequester {
             m_ic.release();
             m_ic = null;
         }
-        if (m_dl != null) {
-            m_dl.release();
-            m_dl = null;
+        if (m_file != null) {
+            m_file.cancel(this);
+            m_file = null;
         }
     }
 
@@ -63,11 +63,12 @@ public class ImageTexture extends Node implements ImageRequester {
                 m_url = url;
                 if (url.length() != 0 && !c.checkImage (url)) { // not local
                     m_state = Loadable.LOADING;
-                    m_dl = new DataLoader (url, this, c);
-                    // Dataloader can call back imageReady immediately if image is cached 
+                    m_file = FileQueue.add (url, c.scene, this, true);
+                    // FileQueue can call back dataReady immediately if image is blacklisted
                     // Display alternate image while main image is loading if avail
-                    if (m_state == Loadable.LOADING) {
-                        url = ((MFString)m_field[2]).getValue (0);
+                    // or error image on error is avail
+                    if (m_state == Loadable.LOADING || m_state == Loadable.ERROR) {
+                        url = ((MFString)m_field[2]).getValue (m_state == Loadable.LOADING ? 0 : 1);
                         if (url.length() != 0 && c.checkImage (url)) {
                             m_url = url;
                         }
@@ -79,7 +80,7 @@ public class ImageTexture extends Node implements ImageRequester {
         // Check isUpdated() only after as it resets m_isUpdated 
         boolean updated = isUpdated (forceUpdate);
         
-        if (m_dl != null) {
+        if (m_file != null) {
             if (m_state == Loadable.ERROR) {
                 // If error during loading, display error alternate image
                 String url = ((MFString)m_field[2]).getValue (1);
@@ -88,7 +89,7 @@ public class ImageTexture extends Node implements ImageRequester {
                 }
                 stop (null); // force redisplay
             } else if (m_state == Loadable.LOADED) {
-                m_url = m_dl.m_url;
+                m_url = m_file.getName();
                 stop (null); // force redisplay
             }
         }
@@ -128,8 +129,7 @@ public class ImageTexture extends Node implements ImageRequester {
         }
     }
 
-    public void imageReady (Image image) {
-        m_state = image != null ? Loadable.LOADED : Loadable.ERROR;
-        
+    public void dataReady(byte[] data) {
+        m_state = data != null ? Loadable.LOADED : Loadable.ERROR;
     }
 }
