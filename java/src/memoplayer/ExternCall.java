@@ -125,8 +125,7 @@ class ExternCall {
 //#ifdef api.ad
         case 17: doAd (c, m, registers, r, nbParams); break;
 //#endif
-
-        case 18: doHttp (c, m, registers, r, nbParams); break;
+        case 18: JSHttp.doHttp (c, m, registers, r, nbParams); break;
         case 19: doStyle (c, m, registers, r, nbParams); break;
         case 20: doGPS (c, m, registers, r, nbParams); break;
         default:
@@ -1760,41 +1759,6 @@ class ExternCall {
         }
     }
     
-    static void doHttp (Context c, int m, Register [] registers, int r, int nbParams) {
-        switch (m) {
-        case 0: // get (url, callback, [encoding]) => callback (responseCode, data)
-        case 1: // post (url, data, callback, [encoding]) => callback (responseCode, data)
-            final Script script = c.script;
-            final Context context = c;
-            final String url = registers[r].getString();
-            final String data = registers[r+1].getString();
-            final int cb = registers[r+m+1].getInt();
-            final String encoding = nbParams==m+3 ? registers[r+m+2].getString() : "UTF-8";
-            final int mode = m == 1 ? File.MODE_WRITE : File.MODE_READ;
-            script.releaseMachineOnInit = false; // prevent release of Machine on Script start
-            new Thread () {
-                public void run () {
-                    File f = new File (url, mode);
-                    context.addLoadable (f);
-                    if (mode == File.MODE_WRITE) f.startWriteAll(data, false, encoding);
-                    String rdata = f.startReadAll (false, encoding);
-                    int response = f.getHttpResponseCode();
-                    context.removeLoadable (f);
-                    Register[] params = new Register[] { new Register(), new Register(), new Register() };
-                    params[0].setString(url);
-                    params[1].setInt(response);
-                    params[2].setString(rdata);
-                    script.addCallback(cb, params);
-                    MiniPlayer.wakeUpCanvas();
-                }
-            }.start();
-            return;
-        default:
-            System.err.println ("doHttp (m:"+m+")Static call: Invalid method");
-            return;
-        }
-    }
-
     static void doStyle (Context c, int m, Register [] registers, int r, int nbParams) {
 //#ifdef api.richText
         Field f = registers[r].getField();

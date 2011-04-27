@@ -42,7 +42,7 @@ public class File implements Loadable {
     private DataOutputStream m_dos;
 
     protected String m_url;
-    private int m_mode = MODE_READ & MODE_SYNC;
+    protected int m_mode = MODE_READ & MODE_SYNC;
     private int m_state = Loadable.ERROR;
     private int m_len = -1; // the total number of byte to read
     private int m_current = 0; // number of bytes already read (value should be between 0 and m_len)

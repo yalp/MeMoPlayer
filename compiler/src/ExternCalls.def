@@ -772,6 +772,7 @@ Ad {
 Http {
     get
     post
+    cancel
 }
 
 # Class Style
