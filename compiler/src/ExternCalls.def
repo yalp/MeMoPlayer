@@ -773,6 +773,7 @@ Http {
     get
     post
     cancel
+    stream
 }
 
 # Class Style

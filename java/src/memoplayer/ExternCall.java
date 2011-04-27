@@ -683,17 +683,21 @@ class ExternCall {
         return (id >= 0 && id < MAX_XML_DOMS && s_xmlDoms != null && s_xmlDoms[id] != null) ? s_xmlDoms[id] : null;
     }
     
+    static synchronized int getFreeXmlSlot () {
+        if (s_xmlDoms == null) {
+            s_xmlDoms = new XmlDom[MAX_XML_DOMS];
+            return 0;
+        } else {
+            return getFreeSlot(s_xmlDoms);
+        }
+    }
+
     static void doXml (Context c, int m, Register [] registers, int r, int nbParams) {
         XmlDom xd = null;
         int id = -1;
         switch (m) {
         case 0: //open (String s, int mode, [Function callback])
-            if (s_xmlDoms == null) {
-                s_xmlDoms = new XmlDom[MAX_XML_DOMS];
-                id = 0;
-            } else {
-                id = getFreeSlot(s_xmlDoms);
-            }
+            id = getFreeXmlSlot();
             if (id >= 0) {
                 final String buffer = registers[r].getString ();
                 final int mode = registers[r+1].getInt();

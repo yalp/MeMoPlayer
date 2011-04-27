@@ -6,6 +6,8 @@ import java.lang.ref.WeakReference;
  * Handle JS HTTP calls using the FileQueue
  */
 public class JSHttp extends FileQueue {
+    private final static String CHUNK_BML = "BML";
+    private final static String CHUNK_IMAGE = "IMAGE";
 
     // Keep a private list of weak refs to http requests
     private static ObjLink s_list;
@@ -23,6 +25,10 @@ public class JSHttp extends FileQueue {
             return;
         case 2: // cancel (url)
             cancel (rr[r].getString());
+            return;
+        case 3: // stream (url, chunkCb, statusCb)
+            s.releaseMachineOnInit = false;
+            new JSHttp(c, rr[r].getString(), rr[r+1].getInt(), rr[r+2].getInt());
             return;
         default:
             System.err.println ("doHttp (m:"+m+")Static call: Invalid method");
@@ -62,6 +68,15 @@ public class JSHttp extends FileQueue {
     private final Script m_script;
     private final int m_statusCb;
     private final Register m_rUrl = new Register();
+    private int m_chunkCb = -1;
+
+    /**
+     * Stream constructor
+     */
+    public JSHttp (Context c, String url, int chunkCb, int statusCb) {
+        this (c, url, null, statusCb, null);
+        m_chunkCb = chunkCb;
+    }
 
     /**
      * Get constructor
@@ -88,7 +103,11 @@ public class JSHttp extends FileQueue {
 
     public void openAndLoad() {
         if (getState() == QUEUED) {
-            runRequest();
+            if (m_chunkCb == -1) {
+                runRequest();
+            } else {
+                runStream();
+            }
         }
     }
 
@@ -115,5 +134,89 @@ public class JSHttp extends FileQueue {
             m_script.addCallback(m_statusCb, params);
             MiniPlayer.wakeUpCanvas();
         }
+    }
+
+    public void runStream () {
+        try {
+            //Logger.println("START REQ: "+m_url);
+            open (m_url);
+            int code = getHttpResponseCode();
+            //Logger.println("REQ: "+m_url+" CODE:"+code);
+            if (code == 200) {
+                notifyStatus (code, "streaming");
+                try {
+                    while (decodeChunk());
+                    notifyStatus (222, "done");
+                } finally {
+                    close (LOADED);
+                }
+            } else {
+                notifyStatus (code, "error: bad response code");
+            }
+        } catch (Throwable t) {
+            notifyStatus (0, "error: "+t+": "+t.getMessage());
+        }
+    }
+
+    boolean decodeChunk () throws Exception {
+        int magic = readInt ();
+        //Logger.println("CHUNK: "+Integer.toHexString(magic));
+        switch (magic) {
+        case Decoder.MAGIC_IMAGE:
+            String name = readString ();
+            int size = readInt ();
+            //Logger.println("IMAGE: "+name+": "+size);
+            byte[] data = readBytes(size);
+            m_scene.addData (name, data, magic, true);
+            notifyChunk(CHUNK_IMAGE, name, -1);
+            return true;
+//#ifdef api.bml
+        case Decoder.MAGIC_BML:
+            name = readString ();
+            size = readInt ();
+            //Logger.println("BML: "+name+": "+size);
+            data = readBytes (size);
+            XmlNode root = new BmlReader(data).getRootNode();
+            int id = ExternCall.getFreeXmlSlot();
+            if (id == -1) throw new Exception ("No Xml slot available !");
+            XmlDom dom = new XmlDom ();
+            dom.setRoot(root);
+            ExternCall.s_xmlDoms[id] = new XmlDom ();
+            notifyChunk (CHUNK_BML, name, id);
+            return true;
+//#endif
+        case Decoder.MAGIC_END:
+            return false;
+        default:
+            // Skip unsupported chunk
+            name = readString ();
+            size = readInt ();
+            readBytes(size);
+            Logger.println("Stream: Skipped unsupported chunk: "+Integer.toHexString(magic));
+            return true;
+            //throw new Exception("Bad magic: "+ Integer.toHexString(magic));
+        }
+    }
+
+    void notifyStatus (int status, String message) {
+        final Register rStatus = new Register();
+        final Register rMessage = new Register();
+        rStatus.setInt (status);
+        rMessage.setString (message);
+        m_script.addCallback (m_statusCb, new Register[] { m_rUrl, rStatus, rMessage });
+        MiniPlayer.wakeUpCanvas();
+        Thread.yield();
+    }
+
+    void notifyChunk (String type, String name, int id) {
+        final Register regName = new Register();
+        final Register regType = new Register();
+        final Register regId = new Register();
+        regName.setString (name);
+        regType.setString (type);
+        regId.setInt(id);
+        m_script.addCallback (m_chunkCb, new Register[] { regName, regType, regId });
+        MiniPlayer.wakeUpCanvas();
+        Thread.yield();
     }
 }
