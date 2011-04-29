@@ -43,16 +43,17 @@ public class Script extends Node implements ScriptAccess {
         cb.m_function = method;
         cb.m_params = params;
         cb.m_time = time;
-        if (time == IMMEDIATE_CALLBACK || m_cbList == null || time < m_cbList.m_time) {
-            // immediate callback or empty list or first, just add as first
+        if (m_cbList == null || time < m_cbList.m_time) {
+            // empty list or first, just add as first
             cb.m_next = m_cbList;
             m_cbList = cb;
         } else {
-            // delayed callback, insert at the right position in the list
+            // insert at the right position in the list
             ScriptCallback c = m_cbList;
             ScriptCallback next = c.m_next;
             while (next != null) {
-                if (time > next.m_time) {
+                // When time is equal, always place after !
+                if (time >= next.m_time) {
                     c = next;
                     next = c.m_next;
                 } else { // found position
